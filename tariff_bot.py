@@ -35,6 +35,17 @@ log = logging.getLogger("tariff_bot")
 from risk_guard import RiskManager
 risk_manager = RiskManager()
 
+# ── Shadow Logging ────────────────────────────────────────────────────────────
+SHADOW_LOG_FILE = os.getenv("SHADOW_LOG_FILE", "shadow_log.jsonl")
+
+def shadow_log(opportunity: dict, taken: bool, reason: str = ""):
+    entry = {"ts": time.time(), "taken": taken, "reason": reason, **opportunity}
+    try:
+        with open(SHADOW_LOG_FILE, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+    except:
+        pass
+
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 KALSHI_BASE       = os.getenv("KALSHI_BASE", "https://api.elections.kalshi.com")
 KALSHI_API_URL    = os.getenv("KALSHI_API_URL", f"{KALSHI_BASE}/trade-api/v2")
@@ -532,6 +543,7 @@ async def main():
                 trade = find_best_trade(all_markets, signal)
                 if not trade:
                     log.info(f"No edge found for {signal.signal_type} in {len(all_markets)} markets")
+                    shadow_log({"bot": "tariff", "signal_type": signal.signal_type}, taken=False, reason="no edge found")
                     continue
 
                 price     = trade["price"]
@@ -561,6 +573,7 @@ async def main():
                 success = await place_order(client, mkt_ticker, trade["side"],
                                             price, contracts, paper, trade["note"])
                 if success:
+                    shadow_log({"bot": "tariff", "ticker": mkt_ticker, "side": trade["side"], "price": price, "edge": trade["edge"], "signal_type": signal.signal_type}, taken=True)
                     cooldown.mark(cd_key)
                     trades += 1
 
