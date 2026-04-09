@@ -38,7 +38,9 @@ PAPER_MODE        = os.getenv("PAPER_MODE", "true").lower() == "true"
 PAPER_BALANCE     = float(os.getenv("PAPER_BALANCE", "5000"))
 BET_SIZE_USD      = float(os.getenv("BET_SIZE_USD", "15"))
 MAX_BET_USD       = float(os.getenv("MAX_BET_USD", "40"))
+KELLY_FRACTION    = float(os.getenv("KELLY_FRACTION", "1.0"))
 MIN_EDGE          = float(os.getenv("MIN_EDGE", "0.06"))
+MAKER_FEE         = float(os.getenv("MAKER_FEE", "0.0175"))
 POLL_INTERVAL_SEC = int(os.getenv("POLL_INTERVAL_SEC", "600"))   # 10 min
 LOOKBACK_HOURS    = int(os.getenv("LOOKBACK_HOURS", "6"))
 
@@ -369,6 +371,9 @@ def find_best_trade(markets: list, signal: NewsItem) -> Optional[dict]:
 
         if side and price:
             edge = true_prob - price / 100
+            ev_after_fees = edge - MAKER_FEE
+            if ev_after_fees <= 0:
+                continue
             if edge > best_edge and edge >= MIN_EDGE:
                 best_edge = edge
                 best = {
@@ -524,7 +529,12 @@ async def main():
                     continue
 
                 price     = trade["price"]
-                contracts = max(1, min(int(BET_SIZE_USD * 100 / price), int(MAX_BET_USD * 100 / price)))
+                # Kelly criterion sizing
+                market_prob = price / 100
+                model_prob = min(0.95, market_prob + trade["edge"])
+                kelly_f = max(0, (model_prob - market_prob) / (1 - market_prob)) if market_prob < 1 else 0
+                kelly_bet = max(1, min(ledger.balance * kelly_f * KELLY_FRACTION, MAX_BET_USD))
+                contracts = max(1, int(kelly_bet * 100 / price))
                 mkt_ticker = trade["market"].get("ticker", "?")
 
                 log.info(f"[TRADE] {mkt_ticker} | {trade['side'].upper()} {contracts}ct @ {price}¢ | "
