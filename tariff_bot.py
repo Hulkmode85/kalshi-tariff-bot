@@ -598,15 +598,16 @@ async def main():
                     if not allowed:
                         log.info(f"[PAPER] Risk guard would block: {reason}")
 
+                # ── Regime detection ──
+                regime = check_regime(float(price))
+                if regime == "CRASH":
+                    log.warning("REGIME CRASH on kalshi_tariff_bot — skipping trade")
+                    shadow_log({"bot": "kalshi_tariff_bot", "regime": regime}, taken=False, reason="crash regime")
+                    continue
+
                 success = await place_order(client, mkt_ticker, trade["side"],
                                             price, contracts, paper, trade["note"])
                 if success:
-                    # ── Regime detection ──
-                    regime = check_regime(float(price))
-                    if regime == "CRASH":
-                        log.warning("REGIME CRASH on kalshi_tariff_bot — skipping trade")
-                        shadow_log({"bot": "kalshi_tariff_bot", "regime": regime}, taken=False, reason="crash regime")
-                        continue
                     shadow_log({"bot": "tariff", "ticker": mkt_ticker, "side": trade["side"], "price": price, "edge": trade["edge"], "signal_type": signal.signal_type}, taken=True)
                     cooldown.mark(cd_key)
                     trades += 1
