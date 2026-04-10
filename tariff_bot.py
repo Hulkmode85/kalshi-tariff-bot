@@ -75,6 +75,44 @@ def check_regime(price: float) -> str:
     return "CALM"
 
 
+
+# ── Early Exit Logic ─────────────────────────────────────────────────────────
+EARLY_EXIT_THRESHOLD = float(os.getenv("EARLY_EXIT_THRESHOLD", "0.93"))
+
+def should_early_exit(current_price_cents: float) -> bool:
+    """Exit position early at 93c+ to lock in profit instead of holding to settlement."""
+    return current_price_cents >= EARLY_EXIT_THRESHOLD * 100
+
+# ── Circuit Breakers ─────────────────────────────────────────────────────────
+CONSECUTIVE_LOSS_PAUSE = int(os.getenv("CONSECUTIVE_LOSS_PAUSE", "3"))
+DAILY_DRAWDOWN_PAUSE_PCT = float(os.getenv("DAILY_DRAWDOWN_PAUSE_PCT", "0.05"))
+
+_consecutive_losses = 0
+_daily_pnl = 0.0
+_circuit_paused_until = 0
+
+def check_circuit_breaker() -> bool:
+    """Returns True if trading should be paused."""
+    import time as _time
+    global _consecutive_losses, _daily_pnl, _circuit_paused_until
+    if _time.time() < _circuit_paused_until:
+        return True
+    if _consecutive_losses >= CONSECUTIVE_LOSS_PAUSE:
+        return True
+    # Use PAPER_BALANCE if available, else 5000
+    _balance = globals().get("PAPER_BALANCE", 5000)
+    if _daily_pnl < -DAILY_DRAWDOWN_PAUSE_PCT * _balance:
+        return True
+    return False
+
+def record_trade_result(won: bool, pnl: float):
+    """Update circuit breaker state after each trade result."""
+    global _consecutive_losses, _daily_pnl
+    _daily_pnl += pnl
+    if won:
+        _consecutive_losses = 0
+    else:
+        _consecutive_losses += 1
 KALSHI_BASE       = os.getenv("KALSHI_BASE", "https://api.elections.kalshi.com")
 KALSHI_API_URL    = os.getenv("KALSHI_API_URL", f"{KALSHI_BASE}/trade-api/v2")
 KALSHI_API_KEY    = os.getenv("KALSHI_API_KEY", "")
@@ -83,7 +121,7 @@ PAPER_MODE        = os.getenv("PAPER_MODE", "true").lower() == "true"
 PAPER_BALANCE     = float(os.getenv("PAPER_BALANCE", "5000"))
 BET_SIZE_USD      = float(os.getenv("BET_SIZE_USD", "15"))
 MAX_BET_USD       = float(os.getenv("MAX_BET_USD", "40"))
-KELLY_FRACTION    = float(os.getenv("KELLY_FRACTION", "1.0"))
+KELLY_FRACTION    = float(os.getenv("KELLY_FRACTION", "0.5"))
 MIN_EDGE          = float(os.getenv("MIN_EDGE", "0.06"))
 MAKER_FEE         = float(os.getenv("MAKER_FEE", "0.0175"))
 POLL_INTERVAL_SEC = int(os.getenv("POLL_INTERVAL_SEC", "600"))   # 10 min
