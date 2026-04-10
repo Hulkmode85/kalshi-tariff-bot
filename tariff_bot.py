@@ -100,7 +100,7 @@ def check_circuit_breaker() -> bool:
     if _consecutive_losses >= CONSECUTIVE_LOSS_PAUSE:
         return True
     # Use PAPER_BALANCE if available, else 5000
-    _balance = globals().get("PAPER_BALANCE", 5000)
+    _balance = globals().get("PAPER_BALANCE", 2000)
     if _daily_pnl < -DAILY_DRAWDOWN_PAUSE_PCT * _balance:
         return True
     return False
@@ -118,11 +118,11 @@ KALSHI_API_URL    = os.getenv("KALSHI_API_URL", f"{KALSHI_BASE}/trade-api/v2")
 KALSHI_API_KEY    = os.getenv("KALSHI_API_KEY", "")
 KALSHI_KEY_ID     = os.getenv("KALSHI_KEY_ID", "")
 PAPER_MODE        = os.getenv("PAPER_MODE", "true").lower() == "true"
-PAPER_BALANCE     = float(os.getenv("PAPER_BALANCE", "5000"))
+PAPER_BALANCE     = float(os.getenv("PAPER_BALANCE", "2000"))
 BET_SIZE_USD      = float(os.getenv("BET_SIZE_USD", "15"))
 MAX_BET_USD       = float(os.getenv("MAX_BET_USD", "40"))
-KELLY_FRACTION    = float(os.getenv("KELLY_FRACTION", "0.5"))
-MIN_EDGE          = float(os.getenv("MIN_EDGE", "0.06"))
+KELLY_FRACTION    = float(os.getenv("KELLY_FRACTION", "0.25"))
+MIN_EDGE          = float(os.getenv("MIN_EDGE", "0.05"))
 MAKER_FEE         = float(os.getenv("MAKER_FEE", "0.0175"))
 POLL_INTERVAL_SEC = int(os.getenv("POLL_INTERVAL_SEC", "600"))   # 10 min
 LOOKBACK_HOURS    = int(os.getenv("LOOKBACK_HOURS", "6"))
